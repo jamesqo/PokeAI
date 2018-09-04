@@ -19,8 +19,7 @@ function _deepAssign(target, sources, memoMap = null) {
         }
 
         var keysArray = Object.keys(source);
-        for (var index = 0, len = keysArray.length; index < len; index++) {
-            var key = keysArray[index];
+        for (const key of keysArray) {
             var desc = Object.getOwnPropertyDescriptor(source, key);
             if (desc !== undefined && desc.enumerable) {
                 to[key] = deepClone(source[key], memoMap);
@@ -43,16 +42,12 @@ function deepClone(original, memoMap = null) {
     // We'll create a new object for a. When we reach a.a in the middle of cloning a,
     // we'll lookup that value and realize we're in the middle of cloning it.
 
-    // TODO: Handle cases where sibling subtrees contain the same reference, such as
-    // const a = {}; const b = {}; a.b1 = b; a.b2 = b;
-    // a_clone.b1 and a_clone.b2 should refer to the same object.
-
     let incompleteClone;
     if (memoMap !== null && (incompleteClone = memoMap.get(original)) !== undefined) {
         return incompleteClone;
     }
 
-    let result, blankSlate;
+    let blankSlate;
 
     switch (typeof original) {
     case 'function':
@@ -64,9 +59,7 @@ function deepClone(original, memoMap = null) {
             memoMap = new Map();
         }
         memoMap.set(original, blankSlate);
-        result = _deepAssign(blankSlate, [original], memoMap);
-        memoMap.delete(original);
-        return result;
+        return _deepAssign(blankSlate, [original], memoMap);
     default:
         throw new Error(`Unrecognized type: ${typeof original}`);
     }
