@@ -1,13 +1,13 @@
 // Copied from es6-deep-clone package
 /* eslint-disable no-new-func */
-function funcCopy(src) {
+function _funcCopy(src) {
     // TODO: THIS IS EXTREMELY HACKISH
     // Also doesn't work for simple cases like deepClone(() => {})
     return new Function("return ", src.toString())();
 }
 
 // Copied from es6-object-assign package
-function deepAssign(target, cloneCache = null, ...sources) {
+function _deepAssign(target, sources, memoMap = null) {
     if (target === undefined || target === null) {
         throw new TypeError('Cannot convert first argument to object');
     }
@@ -23,14 +23,14 @@ function deepAssign(target, cloneCache = null, ...sources) {
             var key = keysArray[index];
             var desc = Object.getOwnPropertyDescriptor(source, key);
             if (desc !== undefined && desc.enumerable) {
-                to[key] = deepClone(source[key], cloneCache);
+                to[key] = deepClone(source[key], memoMap);
             }
         }
     }
     return to;
 }
 
-function deepClone(original, cloneCache = null) {
+function deepClone(original, memoMap = null) {
     if (original === null ||
         original === undefined ||
         typeof original === 'number' ||
@@ -38,41 +38,38 @@ function deepClone(original, cloneCache = null) {
         return original;
     }
 
-    // This check will fire if two sibling subtrees contain the same object, e.g.
+    // In the case of circular references, e.g.
+    // const a = {}; a.a = a;
+    // We'll create a new object for a. When we reach a.a in the middle of cloning a,
+    // we'll lookup that value and realize we're in the middle of cloning it.
+
+    // TODO: Handle cases where sibling subtrees contain the same reference, such as
     // const a = {}; const b = {}; a.b1 = b; a.b2 = b;
-    let cachedResult;
-    if (cloneCache !== null && (cachedResult = cloneCache.get(original)) !== null) {
-        return cachedResult;
+    // a_clone.b1 and a_clone.b2 should refer to the same object.
+
+    let incompleteClone;
+    if (memoMap !== null && (incompleteClone = memoMap.get(original)) !== undefined) {
+        return incompleteClone;
     }
 
-    let result;
+    let result, blankSlate;
+
     switch (typeof original) {
     case 'function':
-        result = funcCopy(original);
-        break;
+        return _funcCopy(original);
     case 'object':
-        result = deepAssign(Object.create(Object.getPrototypeOf(original)), original);
-        break;
+        blankSlate = Object.create(Object.getPrototypeOf(original));
+
+        if (memoMap === null) {
+            memoMap = new Map();
+        }
+        memoMap.set(original, blankSlate);
+        result = _deepAssign(blankSlate, [original], memoMap);
+        memoMap.delete(original);
+        return result;
     default:
         throw new Error(`Unrecognized type: ${typeof original}`);
     }
-
-    // In the case of circular references, e.g.
-    // const a = {}; a.a = a;
-    // we will finish cloning a.a before a, but not before we start cloning a.
-    // So this check will fire in such circumstances.
-    if (cloneCache !== null && (cachedResult = cloneCache.get(original)) !== null) {
-        return cachedResult;
-    }
-
-    if (cloneCache === null) {
-        cloneCache = new Map();
-    }
-    cloneCache.set(original, result);
-    return result;
 }
 
-module.exports = {
-    deepAssign,
-    deepClone
-};
+module.exports = {deepClone};
