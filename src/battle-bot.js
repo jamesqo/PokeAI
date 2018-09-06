@@ -1,3 +1,8 @@
+// @flow
+
+import {NeuralNetwork} from './nn';
+import type {Matrix} from './types';
+
 function buildNeuralNetwork() {
     const nn = new NeuralNetwork();
     const layer0 = nn.addLayer(/* prev */ null, 300);
@@ -6,12 +11,12 @@ function buildNeuralNetwork() {
     return nn;
 }
 
-class BattleBot {
+export class BattleBot {
     constructor() {
         this.nn = buildNeuralNetwork();
     }
 
-    trainAgainst(p2) {
+    trainAgainst(p2: BattleBot) {
         // p2 is another BattleBot
 
         const weights = this.nn.getWeights();
@@ -25,9 +30,11 @@ class BattleBot {
         return weights;
     }
 
-    update(weights) {
+    update(weights: Matrix[]) {
         const numLayers = this.nn.layers.length;
-        assert(weights.length === numLayers);
+        if (weights.length !== numLayers) {
+            throw new Error(`'weights' contains the wrong number of layers. Was ${weights.length}, should be ${numLayers}`);
+        }
 
         for (let i = 0; i < numLayers; i++) {
             const layer = this.nn.layers[i];

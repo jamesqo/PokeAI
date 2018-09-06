@@ -1,3 +1,7 @@
+// @flow
+
+import {BattleBot} from './battle-bot';
+
 // Create 2 battle bots with 2 separate NNs. The shape of their NNs should be the same.
 
 const p1 = new BattleBot();

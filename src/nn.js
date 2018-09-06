@@ -1,29 +1,36 @@
-// TODO: Add Flow/TypeScript
+// @flow
 
-type Vector = $FlowFixMe;
-type Matrix = $FlowFixMe;
+import type {Matrix, Vector} from './types';
 
-interface INeuralNetwork {
+type NullableInt = ?number;
+
+export interface INeuralNetwork {
     layers: ILayer[];
 
     addLayer(prev: ILayer, numNeurons: number): ILayer;
     eval(X: Matrix): Matrix;
-    getWeights(): Matrix;
+    getWeights(): Matrix[];
 }
 
-interface ILayer {
+export interface ILayer {
     prev: ILayer;
     W: Matrix;
     b: Vector;
+
+    +shape: NullableInt[];
+
+    eval(X: Matrix): Matrix;
 }
 
-class NeuralNetwork implements INeuralNetwork {
+export class NeuralNetwork implements INeuralNetwork {
+    layers: ILayer[];
+
     constructor() {
         this.layers = [];
     }
 
     // TODO: Activation function
-    addLayer(prev, numNeurons) {
+    addLayer(prev: ILayer, numNeurons: number) {
         // In the case of the input layer, this corresponds to the number of features of input matrix X,
         // NOT the number of training instances we have.
         const numInputs = prev.shape[1];
@@ -37,24 +44,37 @@ class NeuralNetwork implements INeuralNetwork {
         return layer;
     }
 
-    eval(X) {
+    eval(X: Matrix) {
         let result = X;
         for (const layer of this.layers) {
             result = layer.eval(result);
         }
         return result;
     }
+
+    getWeights() {
+        const result = [];
+        for (const layer of this.layers) {
+            // TODO: Add b, too
+            result.push(layer.W);
+        }
+        return result;
+    }
 }
 
-class Layer {
-    constructor(prev, W, b) {
+export class Layer implements ILayer {
+    prev: ILayer;
+    W: Matrix;
+    b: Vector;
+
+    constructor(prev: ILayer, W: Matrix, b: Matrix) {
         this.prev = prev;
         this.W = W;
         this.b = b;
     }
 
-    eval(X) {
-        return tf.matMul(X, this.W) + this.b; // Adds b to each row
+    eval(X: Matrix) {
+        return tf.add(tf.matMul(X, this.W), this.b); // Adds b to each row
     }
 
     get shape() {
