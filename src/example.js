@@ -7,7 +7,7 @@ const p2 = new BattleBot();
 for (let i = 0; i < 100; i++) {
     // 100 games per epoch
     for (let j = 0; j < 100; j++) {
-        const weights = p1.train(p2);
+        const weights = p1.trainAgainst(p2);
         p1.update(weights);
     }
 
