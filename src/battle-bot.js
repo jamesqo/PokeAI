@@ -39,6 +39,10 @@ export class BattleBot {
         return weights;
     }
 
+    getParams(): NNLayerParams[] {
+        return this.nn.getAllParams();
+    }
+
     setParams(params: NNLayerParams[]) {
         this.nn.setAllParams(params);
     }
