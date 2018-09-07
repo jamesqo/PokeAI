@@ -1,13 +1,13 @@
 // @flow
 
-import {NNLayer} from './nn';
-import type {Matrix} from './types';
+import {NNLayer, inputLayer, hiddenLayer, outputLayer, NNLayerParams} from './nn';
+import {ExploreExploitPolicy} from './policy';
 
-function buildNN(): NNLayer {
-    const layer0 = NNLayer.input();
-    const layer1 = NNLayer.hidden(layer0, 300);
-    const layer2 = NNLayer.hidden(layer1, 100);
-    const layer3 = NNLayer.output(layer2, 1);
+function buildNN(inputSize: number): NNLayer {
+    const layer0 = inputLayer(inputSize);
+    const layer1 = hiddenLayer(layer0, 300);
+    const layer2 = hiddenLayer(layer1, 100);
+    const layer3 = outputLayer(layer2, 1);
     return layer3;
 }
 
@@ -20,7 +20,7 @@ export class BattleBot {
         this.policy = policy;
     }
 
-    act(battle: Battle) {
+    act(battle: Battle): number {
         const shouldExplore = this.policy.decide();
         if (shouldExplore) {
 
@@ -33,13 +33,17 @@ export class BattleBot {
         const battle = new Battle(); // TODO: Connect us and p2
         while (!battle.ended) {
             const reward = this.act(battle);
-            this.updateWeights(reward);
+            this._updateParams(reward);
         }
 
         return weights;
     }
 
-    update(weights: Matrix[]) {
+    setParams(params: NNLayerParams[]) {
+        this.nn.setAllParams(params);
+    }
+
+    _updateParams(weights: Matrix[]) {
         const numLayers = this.nn.layers.length;
         if (weights.length !== numLayers) {
             throw new Error(`'weights' contains the wrong number of layers. Was ${weights.length}, should be ${numLayers}`);

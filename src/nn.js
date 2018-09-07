@@ -28,9 +28,8 @@ export class NNLayer {
     _prev: ?NNLayer;
     _inputSize: ?number;
     _outputSize: number;
-
-    weights: ?Tensor;
-    biases: ?Tensor;
+    _weights: ?Tensor;
+    _biases: ?Tensor;
 
     constructor(prev: ?NNLayer, size: number) {
         this._prev = prev;
@@ -38,31 +37,60 @@ export class NNLayer {
         this._outputSize = size;
 
         if (prev && (this._inputSize !== null)) { // Forced extra check because of Flow
-            this.weights = initWeights(this._inputSize, this._outputSize);
-            this.biases = initBiases(this._outputSize);
+            this._weights = initWeights(this._inputSize, this._outputSize);
+            this._biases = initBiases(this._outputSize);
         }
     }
     
-    get params(): Tensor[] {
-        return this._prev ? [this.weights, this.biases] : [];
+    get params(): ?NNLayerParams {
+        const weights = this._weights, biases = this._biases;
+        return (weights && biases) ? {weights, biases} : null;
+    }
+
+    _setParams(params: NNLayerParams) {
+        if (!this._prev) {
+            throw new Error("_setParams called on input layer");
+        }
+
+        const {weights, biases} = params;
+        this._weights = weights;
+        this._biases = biases;
     }
 
     get shape(): MaybeNumber[] {
         return [this._inputSize, this._outputSize];
     }
 
-    getAllParams(): Tensor[] {
+    getAllParams(): NNLayerParams[] {
         if (!this._prev) {
             throw new Error("getAllParams called on input layer");
         }
 
         const result = [];
 
-        const current = this._prev;
+        let current = this._prev;
         do {
-            result.push(...current.params);
+            if (current.params) { // Forced extra check because of Flow
+                result.push(current.params);
+            }
+            current = current._prev;
         } while (current);
 
         return result;
     }
+
+    setAllParams(params: NNLayerParams[]) {
+        let current: NNLayer = this;
+        while (params.length > 0) {
+            const layerParams = params.pop();
+            current._setParams(layerParams);
+            // $FlowFixMe
+            current = current._prev;
+        }
+    }
 }
+
+export type NNLayerParams = {
+    weights: Tensor,
+    biases: Tensor
+};
