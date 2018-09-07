@@ -1,83 +1,68 @@
 // @flow
 
-import type {Matrix, Vector} from './types';
+type MaybeNumber = ?number;
 
-type NullableInt = ?number;
-
-export interface INeuralNetwork {
-    layers: ILayer[];
-
-    addLayer(prev: ILayer, numNeurons: number): ILayer;
-    eval(X: Matrix): Matrix;
-    getWeights(): Matrix[];
+export function inputLayer(size: number) {
+    return new NNLayer(/* prev */ null, size);
 }
 
-export interface ILayer {
-    prev: ILayer;
-    W: Matrix;
-    b: Vector;
-
-    +shape: NullableInt[];
-
-    eval(X: Matrix): Matrix;
+export function hiddenLayer(prev: NNLayer, size: number) {
+    return new NNLayer(prev, size);
 }
 
-export class NeuralNetwork implements INeuralNetwork {
-    layers: ILayer[];
+export function outputLayer(prev: NNLayer, size: number) {
+    return new NNLayer(prev, size);
+}
 
-    constructor() {
-        this.layers = [];
-    }
+function initWeights(inputSize: number, outputSize: number) {
+    const stdDev = 2 / Math.sqrt(inputSize);
+    const init = tf.truncatedNormal([inputSize, outputSize], 0, stdDev);
+    return tf.variable(init, true, 'weights');
+}
 
-    // TODO: Activation function
-    addLayer(prev: ILayer, numNeurons: number) {
-        // In the case of the input layer, this corresponds to the number of features of input matrix X,
-        // NOT the number of training instances we have.
-        const numInputs = prev.shape[1];
-        const stdDev = 2 / Math.sqrt(numInputs);
-        const init = tf.truncatedNormal([numInputs, numNeurons], /* mean */ 0, stdDev);
-        const W = tf.variable(init, /* trainable */ true, 'weights');
-        const b = tf.variable(tf.zeros([numNeurons]), /* trainable */ true, 'biases');
+function initBiases(outputSize: number) {
+    return tf.variable(tf.zeros([outputSize]), true, 'biases');
+}
 
-        const layer = new Layer(prev, W, b);
-        this.layers.push(layer);
-        return layer;
-    }
+export class NNLayer {
+    _prev: ?NNLayer;
+    _inputSize: ?number;
+    _outputSize: number;
 
-    eval(X: Matrix) {
-        let result = X;
-        for (const layer of this.layers) {
-            result = layer.eval(result);
+    weights: ?Tensor;
+    biases: ?Tensor;
+
+    constructor(prev: ?NNLayer, size: number) {
+        this._prev = prev;
+        this._inputSize = (prev ? prev._outputSize : null);
+        this._outputSize = size;
+
+        if (prev && (this._inputSize !== null)) { // Forced extra check because of Flow
+            this.weights = initWeights(this._inputSize, this._outputSize);
+            this.biases = initBiases(this._outputSize);
         }
-        return result;
+    }
+    
+    get params(): Tensor[] {
+        return this._prev ? [this.weights, this.biases] : [];
     }
 
-    getWeights() {
+    get shape(): MaybeNumber[] {
+        return [this._inputSize, this._outputSize];
+    }
+
+    getAllParams(): Tensor[] {
+        if (!this._prev) {
+            throw new Error("getAllParams called on input layer");
+        }
+
         const result = [];
-        for (const layer of this.layers) {
-            // TODO: Add b, too
-            result.push(layer.W);
-        }
+
+        const current = this._prev;
+        do {
+            result.push(...current.params);
+        } while (current);
+
         return result;
-    }
-}
-
-export class Layer implements ILayer {
-    prev: ILayer;
-    W: Matrix;
-    b: Vector;
-
-    constructor(prev: ILayer, W: Matrix, b: Matrix) {
-        this.prev = prev;
-        this.W = W;
-        this.b = b;
-    }
-
-    eval(X: Matrix) {
-        return tf.add(tf.matMul(X, this.W), this.b); // Adds b to each row
-    }
-
-    get shape() {
-        return [null, this.b.length];
     }
 }
