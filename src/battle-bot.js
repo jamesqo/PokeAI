@@ -11,17 +11,32 @@ function buildNN(inputSize: number): NNLayer {
     return layer3;
 }
 
+export type BattleBotConfig = {
+    learningRate: number;
+    discountRate: number;
+    policy: ExploreExploitPolicy;
+};
+
 export class BattleBot {
     nn: NNLayer;
-    policy: ExploreExploitPolicy;
+    config: BattleBotConfig;
 
-    constructor(policy: ExploreExploitPolicy) {
+    constructor(config: BattleBotConfig) {
         this.nn = buildNN();
-        this.policy = policy;
+        this.config = config;
+    }
+
+    _getRewardRef(): tf.Variable {
+        const rewardTensor = this.nn.output;
+        const [x, y] = rewardTensor.shape;
+        if (x !== 1 || y !== 1) {
+            throw new Error("Reward tensor has incorrect shape");
+        }
+        return rewardTensor[0][0];
     }
 
     act(battle: Battle): number {
-        const shouldExplore = this.policy.decide();
+        const shouldExplore = this.config.policy.decide();
         if (shouldExplore) {
 
         } else {
@@ -47,15 +62,37 @@ export class BattleBot {
         this.nn.setAllParams(params);
     }
 
-    _updateParams(weights: Matrix[]) {
-        const numLayers = this.nn.layers.length;
-        if (weights.length !== numLayers) {
-            throw new Error(`'weights' contains the wrong number of layers. Was ${weights.length}, should be ${numLayers}`);
-        }
+    _updateParams(reward: number) {
+        for (const layerParams of this.nn.getAllParams()) {
+            const {weights, biases} = layerParams;
 
-        for (let i = 0; i < numLayers; i++) {
-            const layer = this.nn.layers[i];
-            layer.W = layerWeights; // TODO: What about biases?
+            weights.addAssign(this._getDelta(weights, reward));
+            biases.addAssign(this._getDelta(biases, reward));
         }
+    }
+
+    _getDelta(params: Tensor, reward: number, prevQhat: number): number {
+        const rewardRef = this._getRewardRef();
+
+        const alpha = this.config.learningRate;
+        const beta = this.config.discountRate;
+        const Qhat = this._Qhat;
+        const maxQhat = ...; // TODO: Enumerate all possible actions, run Qhat on each.
+
+        // TODO: Figure out how to get the fn to differentiate.
+        // Form needed: f((...args: Tensor[]) => Tensor) for tf.grads(f)
+        return alpha * ((reward + beta * maxQhat) - prevQhat) * tf.grads(...);
+    }
+
+    _Qhat(battle: Battle, action: Action): number {
+        // Note: Qhat is an approximation of Q (using the NN).
+        // Thus we don't use actual Q, which would involve cloning
+        // the state of the battle and take forever.
+        const battleFeats = getBattleFeats(battle);
+        const actionFeats = getActionFeats(action);
+        const input = battleFeats.concat(actionFeats);
+
+        this.nn.setInput(input);
+        return this._getRewardRef().eval();
     }
 }

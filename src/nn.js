@@ -31,6 +31,8 @@ export class NNLayer {
     _weights: ?Tensor;
     _biases: ?Tensor;
 
+    output: ?Tensor;
+
     constructor(prev: ?NNLayer, size: number) {
         this._prev = prev;
         this._inputSize = (prev ? prev._outputSize : null);
@@ -39,6 +41,8 @@ export class NNLayer {
         if (prev && (this._inputSize !== null)) { // Forced extra check because of Flow
             this._weights = initWeights(this._inputSize, this._outputSize);
             this._biases = initBiases(this._outputSize);
+
+            this.output = tf.add(tf.matMul(prev.output, this._weights), this._biases);
         }
     }
     
@@ -53,8 +57,8 @@ export class NNLayer {
         }
 
         const {weights, biases} = params;
-        this._weights = weights;
-        this._biases = biases;
+        this._weights.assign(weights);
+        this._biases.assign(biases);
     }
 
     get shape(): MaybeNumber[] {
@@ -87,6 +91,24 @@ export class NNLayer {
             // $FlowFixMe
             current = current._prev;
         }
+    }
+
+    // NOTE: 'input' refers not to the input to this layer, but the input
+    // to the NN as a whole
+    setInput(input: Tensor) {
+        if (!this._prev) {
+            throw new Error("setInput called on input layer-- shouldn't there be more layers?");
+        }
+
+        this._getInputLayer().output = input;
+    }
+
+    _getInputLayer() {
+        let current = this;
+        while (current._prev) {
+            current = current._prev;
+        }
+        return current;
     }
 }
 

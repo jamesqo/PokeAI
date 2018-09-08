@@ -11,11 +11,10 @@ const p2 = new BattleBot();
 for (let i = 0; i < 100; i++) {
     // 100 games per epoch
     for (let j = 0; j < 100; j++) {
-        const newParams = p1.trainAgainst(p2);
-        p1.setParams(newParams);
+        p1.trainAgainst(p2);
     }
 
-    p2.setParams(p1.params);
+    p2.setParams(p1.getParams());
 }
 
 const battle = new Battle();
