@@ -18,8 +18,10 @@ class NNLayer(object):
         n_inputs = prev.shape[1]
         self.shape = [n_inputs, n_outputs]
 
+        self.input = prev.output if isinstance(prev, NNLayer) else prev
         self.weights = init_weights(n_inputs, n_outputs, name=(name + '_weights'))
         self.biases = init_biases(n_outputs, name=(name + '_biases'))
+        self.output = tf.matmul(self.input, self.weights) + self.biases
 
 def build_nn():
     input = tf.placeholder(dtype=tf.float64,
@@ -31,6 +33,7 @@ def build_nn():
 
 def main():
     nn = build_nn()
+    nn.output[0][0].eval()
 
 if __name__ == '__main__':
     main()
