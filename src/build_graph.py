@@ -36,17 +36,16 @@ def op_max_Qhat(inputs):
 
 def op_train(**kwargs):
     tvars = tf.trainable_variables()
-    return tf.group([apply_delta(tvar, **kwargs) for tvar in tvars])
-
-def apply_delta(tvar, reward, max_Qhat, prev_Qhat, learning_rate, discount_rate):
     with tf.variable_scope('nn/output'):
         reward_var = tf.get_variable('output')
 
-    actual = reward + discount_rate * max_Qhat
-    expected = prev_Qhat
-    grads == tf.gradients([reward_var], [tvar])
-    delta = learning_rate * (actual - expected) * grads
-    return tvar.add_assign(delta)
+    grads = tf.gradients([reward_var], tvars)
+    assign_ops = [apply_delta(tvar, grad, **kwargs) for tvar, grad in zip(tvars, grads)]
+    return tf.group(assign_ops)
+
+def apply_delta(tvar, grad, reward, max_Qhat, prev_Qhat, learning_rate, discount_rate):
+    delta = learning_rate * ((reward + discount_rate * max_Qhat) - prev_Qhat) * grad
+    return tf.assign_add(tvar, delta)
 
 def main():
     Qhat_input = tf.placeholder(dtype=tf.float64,
