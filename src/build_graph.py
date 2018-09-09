@@ -3,6 +3,9 @@
 import numpy as np
 import tensorflow as tf
 
+NUM_LAYERS = 3
+LAYER_SIZES = [300, 100, 1]
+
 def init_weights(n_inputs, n_outputs, name):
     with tf.variable_scope('nn'):
         stddev = 2 / np.sqrt(n_inputs)
@@ -13,18 +16,24 @@ def init_biases(n_outputs, name):
     with tf.variable_scope('nn'):
         return tf.get_variable(tf.zeros([n_outputs]), name=name)
 
-def hidden_layer(input, n_outputs, name):
-    n_inputs = input.shape[1]
-    weights = init_weights(n_inputs, n_outputs, name=(name + '_weights'))
-    biases = init_biases(n_outputs, name=(name + '_biases'))
+def get_varnames(index):
+    prefix = 'layer' + str(index)
+    return dict(weights=(prefix + '_weights'),
+                biases=(prefix + '_biases'))
+
+def hidden_layer(input_, n_outputs, names):
+    n_inputs = input_.shape[1]
+    weights = init_weights(n_inputs, n_outputs, name=names['weights'])
+    biases = init_biases(n_outputs, name=names['biases'])
     return tf.add(tf.matmul(input, weights), biases)
 
-def op_Qhat(input):
-    input = tf.placeholder(dtype=tf.float64,
-                           name='input') # TODO: shape
-    layer1 = hidden_layer(input, n_outputs=300, name='layer1')
-    layer2 = hidden_layer(layer1, n_outputs=100, name='layer2')
-    return hidden_layer(layer2, n_outputs=1, name='output')
+def op_Qhat(input_):
+    layer = input_
+    for index in range(NUM_LAYERS):
+        n_outputs = LAYER_SIZES[index]
+        varnames = get_varnames(index)
+        layer = hidden_layer(layer, n_outputs, varnames)
+    return layer
 
 def op_max_Qhat(inputs):
     Qhats = tf.map_fn(op_Qhat, inputs)
@@ -32,7 +41,8 @@ def op_max_Qhat(inputs):
 
 def op_train(max_Qhat, prev_Qhat):
     with tf.variable_scope('nn'):
-        pass # TODO
+        for index in range(NUM_LAYERS):
+            
 
 def main():
     Qhat_input = tf.placeholder(dtype=tf.float64,
