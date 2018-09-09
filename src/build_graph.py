@@ -3,37 +3,27 @@
 import numpy as np
 import tensorflow as tf
 
-NUM_LAYERS = 3
-LAYER_SIZES = [300, 100, 1]
-
 def init_weights(n_inputs, n_outputs, name):
-    with tf.variable_scope('nn'):
-        stddev = 2 / np.sqrt(n_inputs)
-        init = tf.truncated_normal((n_inputs, n_outputs), stddev=stddev)
-        return tf.get_variable(init, name=name)
+    stddev = 2 / np.sqrt(n_inputs)
+    init = tf.truncated_normal((n_inputs, n_outputs), stddev=stddev)
+    return tf.get_variable(init, name=name)
 
 def init_biases(n_outputs, name):
-    with tf.variable_scope('nn'):
-        return tf.get_variable(tf.zeros([n_outputs]), name=name)
+    return tf.get_variable(tf.zeros([n_outputs]), name=name)
 
-def get_varnames(index):
-    prefix = 'layer' + str(index)
-    return dict(weights=(prefix + '_weights'),
-                biases=(prefix + '_biases'))
-
-def hidden_layer(input_, n_outputs, names):
-    n_inputs = input_.shape[1]
-    weights = init_weights(n_inputs, n_outputs, name=names['weights'])
-    biases = init_biases(n_outputs, name=names['biases'])
-    return tf.add(tf.matmul(input, weights), biases)
+def hidden_layer(input_, n_outputs, name):
+    with tf.variable_scope(name):
+        n_inputs = input_.shape[1]
+        weights = init_weights(n_inputs, n_outputs, name='weights')
+        biases = init_biases(n_outputs, name='biases')
+        return tf.add(tf.matmul(input, weights), biases)
 
 def op_Qhat(input_):
-    layer = input_
-    for index in range(NUM_LAYERS):
-        n_outputs = LAYER_SIZES[index]
-        varnames = get_varnames(index)
-        layer = hidden_layer(layer, n_outputs, varnames)
-    return layer
+    with tf.variable_scope('nn'):
+        layer1 = hidden_layer(input_, n_outputs=300, name='layer1')
+        layer2 = hidden_layer(layer1, n_outputs=100, name='layer2')
+        output = hidden_layer(layer2, n_outputs=1, name='output')
+        return output
 
 def op_max_Qhat(inputs):
     Qhats = tf.map_fn(op_Qhat, inputs)
@@ -41,8 +31,7 @@ def op_max_Qhat(inputs):
 
 def op_train(max_Qhat, prev_Qhat):
     with tf.variable_scope('nn'):
-        for index in range(NUM_LAYERS):
-            
+        tvars = tf.trainable_variables()
 
 def main():
     Qhat_input = tf.placeholder(dtype=tf.float64,
