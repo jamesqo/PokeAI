@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 
 import numpy as np
+import os
 import tensorflow as tf
+
+script_dir = os.path.dirname(os.path.realpath(__file__))
+graphs_dir = os.path.join(script_dir, '..', 'graphs')
 
 def init_weights(n_inputs, n_outputs, name):
     stddev = 2 / np.sqrt(n_inputs)
@@ -11,20 +15,16 @@ def init_weights(n_inputs, n_outputs, name):
 def init_biases(n_outputs, name):
     return tf.get_variable(name, initializer=tf.zeros([n_outputs]))
 
-def init_output(weights, biases, name):
-    value = tf.add(tf.matmul(input, weights), biases)
-    return tf.get_variable(name, initializer=value, trainable=False)
-
 def hidden_layer(input_, n_outputs, name):
     with tf.variable_scope(name):
-        n_inputs = input_.shape[1]
+        n_inputs = int(input_.shape[1])
         weights = init_weights(n_inputs, n_outputs, name='weights')
         biases = init_biases(n_outputs, name='biases')
-        output = init_output(weights, biases, name='output')
+        output = tf.add(tf.matmul(input_, weights), biases, name='output')
         return output
 
 def op_Qhat(input_):
-    with tf.variable_scope('nn'):
+    with tf.variable_scope('nn', reuse=tf.AUTO_REUSE):
         layer1 = hidden_layer(input_, n_outputs=300, name='layer1')
         layer2 = hidden_layer(layer1, n_outputs=100, name='layer2')
         output = hidden_layer(layer2, n_outputs=1, name='output')
@@ -35,43 +35,58 @@ def op_max_Qhat(inputs):
     return tf.reduce_max(Qhats)
 
 def op_train(**kwargs):
+    graph = tf.get_default_graph()
     tvars = tf.trainable_variables()
-    with tf.variable_scope('nn/output'):
-        reward_var = tf.get_variable('output')
+    # TODO: Use VarScope here?
+    # TODO: Should the output index be 0 or some other number?
+    reward_var = graph.get_tensor_by_name('nn/output/output:0')
 
-    grads = tf.gradients([reward_var], tvars)
+    grads = tf.gradients(reward_var, tvars)
     assign_ops = [apply_delta(tvar, grad, **kwargs) for tvar, grad in zip(tvars, grads)]
     return tf.group(assign_ops)
 
 def apply_delta(tvar, grad, reward, max_Qhat, prev_Qhat, learning_rate, discount_rate):
-    delta = learning_rate * ((reward + discount_rate * max_Qhat) - prev_Qhat) * grad
+    TD_target = reward + (discount_rate * max_Qhat)
+    delta = learning_rate * (TD_target - prev_Qhat) * grad
     return tf.assign_add(tvar, delta)
 
 def main():
-    Qhat_input = tf.placeholder(dtype=tf.float64,
-                                name='Qhat_input') # TODO: Shape
+    with tf.Graph().as_default() as graph:
+        Qhat_input = tf.placeholder(dtype=tf.float32,
+                                    name='Qhat_input',
+                                    shape=[1, 4000]) # TODO: Shape
 
-    max_Qhat_inputs = tf.placeholder(dtype=tf.float64,
-                                     name='max_Qhat_inputs') # TODO: Shape
+        max_Qhat_inputs = tf.placeholder(dtype=tf.float32,
+                                        name='max_Qhat_inputs',
+                                        shape=[None, 1, 4000]) # TODO: Shape
 
-    train_reward = tf.placeholder(dtype=tf.float64,
-                                  name='train_reward') # TODO: Shape
-    train_max_Qhat = tf.placeholder(dtype=tf.float64,
-                                    name='train_max_Qhat') # TODO: Shape
-    train_prev_Qhat = tf.placeholder(dtype=tf.float64,
-                                     name='train_prev_Qhat') # TODO: Shape
-    train_learning_rate = tf.placeholder(dtype=tf.float64,
-                                         name='train_learning_rate') # TODO: Shape
-    train_discount_rate = tf.placeholder(dtype=tf.float64,
-                                         name='train_discount_rate') # TODO: Shape
+        # NOTE: shape=[] means it's a scalar
+        train_reward = tf.placeholder(dtype=tf.float32,
+                                    name='train_reward',
+                                    shape=[])
+        train_max_Qhat = tf.placeholder(dtype=tf.float32,
+                                        name='train_max_Qhat',
+                                        shape=[])
+        train_prev_Qhat = tf.placeholder(dtype=tf.float32,
+                                        name='train_prev_Qhat',
+                                        shape=[])
+        train_learning_rate = tf.placeholder(dtype=tf.float32,
+                                            name='train_learning_rate',
+                                            shape=[])
+        train_discount_rate = tf.placeholder(dtype=tf.float32,
+                                            name='train_discount_rate',
+                                            shape=[])
 
-    Qhat = op_Qhat(Qhat_input)
-    max_Qhat = op_max_Qhat(max_Qhat_inputs)
-    train = op_train(reward=train_reward,
-                     max_Qhat=train_max_Qhat,
-                     prev_Qhat=train_prev_Qhat,
-                     learning_rate=train_learning_rate,
-                     discount_rate=train_discount_rate)
+        Qhat = op_Qhat(Qhat_input)
+        max_Qhat = op_max_Qhat(max_Qhat_inputs)
+        train = op_train(reward=train_reward,
+                        max_Qhat=train_max_Qhat,
+                        prev_Qhat=train_prev_Qhat,
+                        learning_rate=train_learning_rate,
+                        discount_rate=train_discount_rate)
+
+        os.makedirs(graphs_dir, exist_ok=True)
+        tf.train.write_graph(graph, graphs_dir, 'graph.proto', as_text=False)
 
 if __name__ == '__main__':
     main()
