@@ -3,14 +3,6 @@
 import {NNLayer, inputLayer, hiddenLayer, outputLayer, NNLayerParams} from './nn';
 import {ExploreExploitPolicy} from './policy';
 
-function buildNN(inputSize: number): NNLayer {
-    const layer0 = inputLayer(inputSize);
-    const layer1 = hiddenLayer(layer0, 300);
-    const layer2 = hiddenLayer(layer1, 100);
-    const layer3 = outputLayer(layer2, 1);
-    return layer3;
-}
-
 export type BattleBotConfig = {
     learningRate: number;
     discountRate: number;
@@ -38,7 +30,7 @@ export class BattleBot {
     act(battle: Battle): number {
         const shouldExplore = this.config.policy.decide();
         if (shouldExplore) {
-
+            // Choose a random action. Measure the reward.
         } else {
 
         }
